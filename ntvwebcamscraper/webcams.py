@@ -92,3 +92,8 @@ def save_camera_image(camera: Camera) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     save_stream_frame(stream_hls_url, output_path)
+
+
+def save_all_camera_images() -> None:
+    for camera in list_cameras():
+        save_camera_image(camera)

@@ -1,9 +1,13 @@
-from .webcams import (
-    list_cameras,
-    save_camera_image,
-)
+import time
 
-cameras = list_cameras()
+from scheduler import Scheduler
 
-for camera in cameras:
-    save_camera_image(camera)
+from .config import config
+from .webcams import save_all_camera_images
+
+schedule = Scheduler()
+schedule.cyclic(config.interval, save_all_camera_images)
+
+while True:
+    schedule.exec_jobs()
+    time.sleep(1)
