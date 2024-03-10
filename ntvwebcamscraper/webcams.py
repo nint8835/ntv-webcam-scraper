@@ -96,4 +96,10 @@ def save_camera_image(camera: Camera) -> None:
 
 def save_all_camera_images() -> None:
     for camera in list_cameras():
+        if (
+            config.target_cameras is not None
+            and camera.slug not in config.target_cameras
+        ) or camera.slug in config.excluded_cameras:
+            continue
+
         save_camera_image(camera)
