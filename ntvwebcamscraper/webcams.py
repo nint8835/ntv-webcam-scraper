@@ -77,10 +77,17 @@ def get_stream_hls_url(iframe_url: str) -> str:
 
 
 def save_stream_frame(hls_url: str, output_path: Path) -> None:
-    ffmpeg.input(hls_url).output(str(output_path), vframes=1).run()
+    try:
+        ffmpeg.input(hls_url).output(str(output_path), vframes=1).run(
+            capture_stdout=True, capture_stderr=True
+        )
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"ffmpeg error: {e.stderr.decode()}") from e
 
 
 def save_camera_image(camera: Camera) -> None:
+    print("Saving image for", camera.name)
+
     stream_frame_url = get_stream_iframe_url(camera)
     stream_hls_url = get_stream_hls_url(stream_frame_url)
 
@@ -92,6 +99,8 @@ def save_camera_image(camera: Camera) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     save_stream_frame(stream_hls_url, output_path)
+
+    print("Saved image for", camera.name)
 
 
 def save_all_camera_images() -> None:
