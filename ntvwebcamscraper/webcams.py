@@ -47,7 +47,7 @@ def list_cameras() -> list[Camera]:
 
 
 @lru_cache
-def get_stream_frame_url(camera: Camera) -> str:
+def get_stream_iframe_url(camera: Camera) -> str:
     camera_page = session.get(WEBCAM_URL_PREFIX + camera.slug + "/")
     camera_page.raise_for_status()
 
@@ -62,8 +62,8 @@ def get_stream_frame_url(camera: Camera) -> str:
 
 
 @lru_cache
-def get_stream_hls_url(stream_url: str) -> str:
-    stream_page = session.get(stream_url)
+def get_stream_hls_url(iframe_url: str) -> str:
+    stream_page = session.get(iframe_url)
     stream_page.raise_for_status()
 
     soup = BeautifulSoup(stream_page.text, "html.parser")
@@ -81,7 +81,7 @@ def save_stream_frame(hls_url: str, output_path: Path) -> None:
 
 
 def save_camera_image(camera: Camera) -> None:
-    stream_frame_url = get_stream_frame_url(camera)
+    stream_frame_url = get_stream_iframe_url(camera)
     stream_hls_url = get_stream_hls_url(stream_frame_url)
 
     output_path = (
