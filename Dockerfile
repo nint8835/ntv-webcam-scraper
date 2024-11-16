@@ -1,10 +1,11 @@
-FROM python:3.11-alpine
+FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
 RUN apk add --no-cache ffmpeg --repository=https://dl-cdn.alpinelinux.org/alpine/latest-stable/community
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
 

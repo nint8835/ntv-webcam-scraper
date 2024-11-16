@@ -1,0 +1,11 @@
+.dockerignore
+.git
+.gitignore
+.venv
+.vscode
+**/__pycache__/
+**/.DS_Store
+Dockerfile
+images
+LICENSE
+README.md
