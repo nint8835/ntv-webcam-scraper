@@ -13,7 +13,6 @@ from .config import config
 
 WEBCAMS_PAGE = "https://ntvplus.ca/pages/webcams"
 WEBCAM_URL_PREFIX = "https://ntvplus.ca/pages/webcam-"
-IMAGE_DATE_FORMAT = "%Y-%m-%d %H-%M-%S.png"
 
 session = httpx.Client(
     headers={
@@ -100,7 +99,13 @@ def save_camera_image(camera: Camera) -> None:
     stream_hls_url = get_stream_hls_url(stream_frame_url)
 
     output_path = (
-        config.output_path / camera.slug / (datetime.now().strftime(IMAGE_DATE_FORMAT))
+        config.output_path
+        / camera.slug
+        / (
+            datetime.now().strftime(
+                config.output_file_name_format + "." + config.output_file_format
+            )
+        )
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
