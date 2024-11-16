@@ -11,8 +11,9 @@ from pydantic import BaseModel
 
 from .config import config
 
-WEBCAMS_PAGE = "https://ntvplus.ca/webcams/"
-WEBCAM_URL_PREFIX = "https://ntvplus.ca/"
+WEBCAMS_PAGE = "https://ntvplus.ca/pages/webcams"
+WEBCAM_URL_PREFIX = "https://ntvplus.ca/pages/webcam-"
+IMAGE_DATE_FORMAT = "%Y-%m-%d %H-%M-%S.png"
 
 session = httpx.Client(
     headers={
@@ -38,17 +39,24 @@ def list_cameras() -> list[Camera]:
 
     cameras = []
 
-    for camera_h3 in soup.find_all("h3", class_="boosted-elements-blog-title"):
-        camera_a = camera_h3.find("a")
+    page_div = soup.find("div", class_="page")
 
-        cameras.append(Camera(name=camera_a.text, slug=camera_a["href"].split("/")[-2]))
+    for camera_a in page_div.find_all("a"):
+        title_h3 = camera_a.find("h3")
+
+        cameras.append(
+            Camera(
+                name=title_h3.text,
+                slug=camera_a["href"].split("/")[-1].removeprefix("webcam-"),
+            )
+        )
 
     return cameras
 
 
 @lru_cache
 def get_stream_iframe_url(camera: Camera) -> str:
-    camera_page = session.get(WEBCAM_URL_PREFIX + camera.slug + "/")
+    camera_page = session.get(WEBCAM_URL_PREFIX + camera.slug)
     camera_page.raise_for_status()
 
     soup = BeautifulSoup(camera_page.text, "html.parser")
@@ -92,9 +100,7 @@ def save_camera_image(camera: Camera) -> None:
     stream_hls_url = get_stream_hls_url(stream_frame_url)
 
     output_path = (
-        config.output_path
-        / camera.slug
-        / (datetime.now().replace(microsecond=0).isoformat() + ".png")
+        config.output_path / camera.slug / (datetime.now().strftime(IMAGE_DATE_FORMAT))
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
