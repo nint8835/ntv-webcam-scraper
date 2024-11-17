@@ -48,7 +48,12 @@ def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
 
 
 def create_timelapse(
-    camera: str, from_date: datetime, to_date: datetime, output_path: Path
+    *,
+    camera: str,
+    from_date: datetime,
+    to_date: datetime,
+    output_path: Path,
+    framerate: int,
 ) -> None:
     timestamps = list_camera_timestamps(camera, from_date, to_date)
 
@@ -65,7 +70,7 @@ def create_timelapse(
             ffmpeg.input(
                 str(Path(temp_dir) / ("*." + config.output_file_format)),
                 pattern_type="glob",
-                framerate=12,
+                framerate=framerate,
             ).output(str(output_path / f"{camera}.mp4")).run(
                 overwrite_output=True, capture_stdout=True, capture_stderr=True
             )

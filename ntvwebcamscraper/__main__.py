@@ -31,24 +31,32 @@ def run():
 
 
 @app.command()
-def timelapse(
-    camera: str,
-    from_date: datetime,
-    to_date: datetime,
-):
+def timelapse(camera: str, from_date: datetime, to_date: datetime, framerate: int = 12):
     """Create a timelapse from the saved images."""
 
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
     to_date = to_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
 
     if camera != "all":
-        create_timelapse(camera, from_date, to_date, Path("timelapses"))
+        create_timelapse(
+            camera=camera,
+            from_date=from_date,
+            to_date=to_date,
+            output_path=Path("timelapses"),
+            framerate=framerate,
+        )
 
     for subdir in config.output_path.iterdir():
         if not subdir.is_dir():
             continue
 
-        create_timelapse(subdir.name, from_date, to_date, Path("timelapses"))
+        create_timelapse(
+            camera=subdir.name,
+            from_date=from_date,
+            to_date=to_date,
+            output_path=Path("timelapses"),
+            framerate=framerate,
+        )
 
 
 app()
