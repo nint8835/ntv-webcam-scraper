@@ -61,8 +61,13 @@ def create_timelapse(
         for ts in timestamps:
             shutil.copy(get_timestamp_filename(camera, ts), temp_dir)
 
-        ffmpeg.input(
-            str(Path(temp_dir) / ("*." + config.output_file_format)),
-            pattern_type="glob",
-            framerate=12,
-        ).output(str(output_path / f"{camera}.mp4")).run()
+        try:
+            ffmpeg.input(
+                str(Path(temp_dir) / ("*." + config.output_file_format)),
+                pattern_type="glob",
+                framerate=12,
+            ).output(str(output_path / f"{camera}.mp4")).run(
+                overwrite_output=True, capture_stdout=True, capture_stderr=True
+            )
+        except ffmpeg.Error as e:
+            raise RuntimeError(f"ffmpeg error: {e.stderr.decode()}") from e

@@ -41,7 +41,14 @@ def timelapse(
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
     to_date = to_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
 
-    create_timelapse(camera, from_date, to_date, Path("timelapses"))
+    if camera != "all":
+        create_timelapse(camera, from_date, to_date, Path("timelapses"))
+
+    for subdir in config.output_path.iterdir():
+        if not subdir.is_dir():
+            continue
+
+        create_timelapse(subdir.name, from_date, to_date, Path("timelapses"))
 
 
 app()
