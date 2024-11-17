@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-alpine
+FROM ghcr.io/astral-sh/uv:python3.12-alpine
 
 RUN apk add --no-cache ffmpeg --repository=https://dl-cdn.alpinelinux.org/alpine/latest-stable/community
 WORKDIR /app

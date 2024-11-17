@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import ffmpeg
 import httpx
@@ -102,7 +103,7 @@ def save_camera_image(camera: Camera) -> None:
         config.output_path
         / camera.slug
         / (
-            datetime.now().strftime(
+            datetime.now(tz=ZoneInfo("America/St_Johns")).strftime(
                 config.output_file_name_format + "." + config.output_file_format
             )
         )
