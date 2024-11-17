@@ -1,13 +1,13 @@
 import time
 from datetime import datetime
-from pprint import pprint
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import typer
 from scheduler import Scheduler
 
 from .config import config
-from .timelapse import list_camera_timestamps
+from .timelapse import create_timelapse
 from .webcams import save_all_camera_images
 
 app = typer.Typer()
@@ -41,7 +41,7 @@ def timelapse(
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
     to_date = to_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
 
-    pprint(list(list_camera_timestamps(camera, from_date, to_date)))
+    create_timelapse(camera, from_date, to_date, Path("timelapses"))
 
 
 app()
