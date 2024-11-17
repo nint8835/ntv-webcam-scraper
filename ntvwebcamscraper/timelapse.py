@@ -54,7 +54,10 @@ def create_timelapse(
     to_date: datetime,
     output_path: Path,
     framerate: int,
+    include_timestamp: bool,
 ) -> None:
+    print(f"Creating timelapse for {camera} from {from_date} to {to_date}")
+
     timestamps = list_camera_timestamps(camera, from_date, to_date)
 
     if not timestamps:
@@ -66,13 +69,31 @@ def create_timelapse(
         for ts in timestamps:
             shutil.copy(get_timestamp_filename(camera, ts), temp_dir)
 
+        pipeline = ffmpeg.input(
+            str(Path(temp_dir) / ("*." + config.output_file_format)),
+            pattern_type="glob",
+            framerate=framerate,
+            export_path_metadata=1,
+        )
+
+        if include_timestamp:
+            pipeline = pipeline.drawtext(
+                text="%{metadata:lavf.image2dec.source_basename}",
+                escape_text=False,
+                x=10,
+                y=10,
+                fontsize=20,
+                borderw=2,
+                bordercolor="white",
+            )
+
         try:
-            ffmpeg.input(
-                str(Path(temp_dir) / ("*." + config.output_file_format)),
-                pattern_type="glob",
-                framerate=framerate,
-            ).output(str(output_path / f"{camera}.mp4")).run(
-                overwrite_output=True, capture_stdout=True, capture_stderr=True
+            pipeline.output(
+                str(output_path / f"{camera}.mp4"),
+            ).run(
+                overwrite_output=True,
+                capture_stdout=True,
+                capture_stderr=True,
             )
         except ffmpeg.Error as e:
             raise RuntimeError(f"ffmpeg error: {e.stderr.decode()}") from e

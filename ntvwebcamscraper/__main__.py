@@ -31,7 +31,13 @@ def run():
 
 
 @app.command()
-def timelapse(camera: str, from_date: datetime, to_date: datetime, framerate: int = 12):
+def timelapse(
+    camera: str,
+    from_date: datetime,
+    to_date: datetime,
+    framerate: int = 12,
+    include_timestamp: bool = False,
+):
     """Create a timelapse from the saved images."""
 
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
@@ -44,7 +50,9 @@ def timelapse(camera: str, from_date: datetime, to_date: datetime, framerate: in
             to_date=to_date,
             output_path=Path("timelapses"),
             framerate=framerate,
+            include_timestamp=include_timestamp,
         )
+        return
 
     for subdir in config.output_path.iterdir():
         if not subdir.is_dir():
@@ -56,6 +64,7 @@ def timelapse(camera: str, from_date: datetime, to_date: datetime, framerate: in
             to_date=to_date,
             output_path=Path("timelapses"),
             framerate=framerate,
+            include_timestamp=include_timestamp,
         )
 
 
