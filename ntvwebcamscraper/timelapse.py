@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from datetime import datetime
+from itertools import groupby
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -47,6 +48,28 @@ def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
     )
 
 
+type FrameSelector = callable[[list[datetime]], list[datetime]]
+
+
+def daily_frames(*, hour: int, frames: int = 1) -> FrameSelector:
+    def select_daily_frames(timestamps: list[datetime]) -> list[datetime]:
+        grouped = groupby(timestamps, key=lambda ts: ts.toordinal())
+
+        daily_frames = []
+
+        for _, timestamps in grouped:
+            hour_frames = [ts for ts in timestamps if ts.hour == hour]
+            daily_frames.extend(hour_frames[:frames])
+
+        return daily_frames
+
+    return select_daily_frames
+
+
+def all_frames(timestamps: list[datetime]) -> list[datetime]:
+    return timestamps
+
+
 def create_timelapse(
     *,
     camera: str,
@@ -55,10 +78,12 @@ def create_timelapse(
     output_path: Path,
     framerate: int,
     include_timestamp: bool,
+    frame_selector: FrameSelector = all_frames,
 ) -> None:
     print(f"Creating timelapse for {camera} from {from_date} to {to_date}")
 
     timestamps = list_camera_timestamps(camera, from_date, to_date)
+    target_timestamps = frame_selector(timestamps)
 
     if not timestamps:
         raise ValueError("No images found for the specified time range.")
@@ -66,7 +91,7 @@ def create_timelapse(
     output_path.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        for ts in timestamps:
+        for ts in target_timestamps:
             shutil.copy(get_timestamp_filename(camera, ts), temp_dir)
 
         pipeline = ffmpeg.input(

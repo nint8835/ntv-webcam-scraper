@@ -7,7 +7,7 @@ import typer
 from scheduler import Scheduler
 
 from .config import config
-from .timelapse import create_timelapse
+from .timelapse import create_timelapse, daily_frames
 from .webcams import save_all_camera_images
 
 app = typer.Typer()
@@ -43,6 +43,8 @@ def timelapse(
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
     to_date = to_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
 
+    selector = daily_frames(hour=10, frames=3)
+
     if camera != "all":
         create_timelapse(
             camera=camera,
@@ -51,6 +53,7 @@ def timelapse(
             output_path=Path("timelapses"),
             framerate=framerate,
             include_timestamp=include_timestamp,
+            frame_selector=selector,
         )
         return
 
@@ -65,6 +68,7 @@ def timelapse(
             output_path=Path("timelapses"),
             framerate=framerate,
             include_timestamp=include_timestamp,
+            frame_selector=selector,
         )
 
 
