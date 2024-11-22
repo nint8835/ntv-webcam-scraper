@@ -1,8 +1,10 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated, cast
 from zoneinfo import ZoneInfo
 
 import typer
+from pydantic import BaseModel
 
 from ntvwebcamscraper.config import config
 from ntvwebcamscraper.timelapse import (
@@ -53,45 +55,59 @@ def create_timelapses(
         )
 
 
-@app.command()
-def daily(
-    camera: str,
-    from_date: datetime,
-    to_date: datetime,
-    hour: int,
-    frames: int = 1,
-    framerate: int = 12,
-    include_timestamp: bool = False,
-):
-    """Create a timelapse from a specified number of frames from a given hour each day."""
+class TimelapseOptions(BaseModel):
+    camera: str
+    from_date: datetime
+    to_date: datetime
+    framerate: int
+    include_timestamp: bool
 
-    create_timelapses(
+
+@app.callback()
+def timelapse_callback(
+    ctx: typer.Context,
+    camera: Annotated[str, typer.Option()],
+    from_date: Annotated[datetime, typer.Option()],
+    to_date: Annotated[datetime, typer.Option()],
+    framerate: Annotated[int, typer.Option()] = 12,
+    include_timestamp: Annotated[bool, typer.Option()] = False,
+):
+    ctx.obj = TimelapseOptions(
         camera=camera,
         from_date=from_date,
         to_date=to_date,
         framerate=framerate,
         include_timestamp=include_timestamp,
+    )
+
+
+@app.command()
+def daily(
+    ctx: typer.Context,
+    hour: int,
+    frames: int = 1,
+):
+    """Create a timelapse from a specified number of frames from a given hour each day."""
+
+    options = cast(TimelapseOptions, ctx.obj)
+
+    create_timelapses(
         frame_selector=daily_frames(hour=hour, frames=frames),
+        **options.model_dump(),
     )
 
 
 @app.command()
 def all(
-    camera: str,
-    from_date: datetime,
-    to_date: datetime,
-    framerate: int = 12,
-    include_timestamp: bool = False,
+    ctx: typer.Context,
 ):
     """Create a timelapse from all saved images."""
 
+    options = cast(TimelapseOptions, ctx.obj)
+
     create_timelapses(
-        camera=camera,
-        from_date=from_date,
-        to_date=to_date,
-        framerate=framerate,
-        include_timestamp=include_timestamp,
         frame_selector=all_frames,
+        **options.model_dump(),
     )
 
 
