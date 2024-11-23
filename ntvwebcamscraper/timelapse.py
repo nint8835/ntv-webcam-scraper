@@ -50,6 +50,16 @@ def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
 type FrameSelector = callable[[list[datetime]], list[datetime]]
 
 
+def frame_selector_pipeline(*selectors: FrameSelector) -> FrameSelector:
+    def pipeline(timestamps: list[datetime]) -> list[datetime]:
+        for selector in selectors:
+            timestamps = selector(timestamps)
+
+        return timestamps
+
+    return pipeline
+
+
 def daily_frames(*, hour: int, frames: int = 1) -> FrameSelector:
     def select_daily_frames(timestamps: list[datetime]) -> list[datetime]:
         grouped = groupby(timestamps, key=lambda ts: ts.toordinal())
@@ -67,6 +77,13 @@ def daily_frames(*, hour: int, frames: int = 1) -> FrameSelector:
 
 def all_frames(timestamps: list[datetime]) -> list[datetime]:
     return timestamps
+
+
+def frame_skip(*, skip: int) -> FrameSelector:
+    def select_frame_skip(timestamps: list[datetime]) -> list[datetime]:
+        return timestamps[::skip]
+
+    return select_frame_skip
 
 
 def create_timelapse(
