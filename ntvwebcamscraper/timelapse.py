@@ -1,4 +1,3 @@
-import shutil
 import tempfile
 from datetime import datetime
 from itertools import groupby
@@ -45,7 +44,7 @@ def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
         / timestamp.strftime(
             config.output_file_name_format + "." + config.output_file_format
         )
-    )
+    ).absolute()
 
 
 type FrameSelector = callable[[list[datetime]], list[datetime]]
@@ -91,11 +90,13 @@ def create_timelapse(
     output_path.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
         for ts in target_timestamps:
-            shutil.copy(get_timestamp_filename(camera, ts), temp_dir)
+            timestamp_path = get_timestamp_filename(camera, ts)
+            (temp_dir_path / timestamp_path.name).symlink_to(timestamp_path)
 
         pipeline = ffmpeg.input(
-            str(Path(temp_dir) / ("*." + config.output_file_format)),
+            str(temp_dir_path / ("*." + config.output_file_format)),
             pattern_type="glob",
             framerate=framerate,
             export_path_metadata=1,
