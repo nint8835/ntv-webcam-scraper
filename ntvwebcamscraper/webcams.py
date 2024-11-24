@@ -32,6 +32,23 @@ class Camera(BaseModel):
 
 @lru_cache
 def list_cameras() -> list[Camera]:
+    return [
+        Camera(
+            name="Admiral's Green",
+            slug="admiralsgreen",
+        ),
+        Camera(name="Corner Brook", slug="cornerbrook"),
+        Camera(name="Downtown", slug="downtown"),
+        Camera(name="George Street", slug="georgestreet"),
+        Camera(name="GFW High Street", slug="gfw-highstreet"),
+        Camera(name="Logy Bay Road", slug="logybayroad"),
+        Camera(name="Port de Grave", slug="portdegrave"),
+        Camera(name="Quidi Vidi Lake", slug="quidividilake"),
+        Camera(name="Quidi Vidi Village", slug="quidividivillage"),
+        Camera(name="St. John's Sky", slug="stjohns-sky"),
+        Camera(name="St. Philip's - Bell Island", slug="stphilips-bellisland"),
+    ]
+
     cameras_page = session.get(WEBCAMS_PAGE)
     cameras_page.raise_for_status()
 
