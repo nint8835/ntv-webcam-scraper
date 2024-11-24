@@ -123,4 +123,7 @@ def save_all_camera_images() -> None:
         ) or camera.slug in config.excluded_cameras:
             continue
 
-        save_camera_image(camera)
+        try:
+            save_camera_image(camera)
+        except Exception as e:
+            print(f"Error saving image for {camera.name}: {e}")
