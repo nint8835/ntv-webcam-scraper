@@ -116,11 +116,15 @@ def save_camera_image(camera: Camera) -> None:
     stream_frame_url = get_stream_iframe_url(camera)
     stream_hls_url = get_stream_hls_url(stream_frame_url)
 
+    now = datetime.now(tz=ZoneInfo("America/St_Johns"))
+    date_folder = now.strftime("%Y-%m-%d")
+    
     output_path = (
         config.output_path
         / camera.slug
+        / date_folder
         / (
-            datetime.now(tz=ZoneInfo("America/St_Johns")).strftime(
+            now.strftime(
                 config.output_file_name_format + "." + config.output_file_format
             )
         )

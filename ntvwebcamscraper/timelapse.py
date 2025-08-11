@@ -16,21 +16,25 @@ def list_camera_timestamps(
 
     timestamps: list[datetime] = []
 
-    for image_file in camera_path.iterdir():
-        try:
-            timestamp = datetime.strptime(
-                image_file.name,
-                config.output_file_name_format + "." + config.output_file_format,
-            ).replace(tzinfo=ZoneInfo("America/St_Johns"))
-        except ValueError:
+    for date_folder in camera_path.iterdir():
+        if not date_folder.is_dir():
             continue
+            
+        for image_file in date_folder.iterdir():
+            try:
+                timestamp = datetime.strptime(
+                    image_file.name,
+                    config.output_file_name_format + "." + config.output_file_format,
+                ).replace(tzinfo=ZoneInfo("America/St_Johns"))
+            except ValueError:
+                continue
 
-        if earliest_ts is not None and timestamp < earliest_ts:
-            continue
-        if latest_ts is not None and timestamp > latest_ts:
-            continue
+            if earliest_ts is not None and timestamp < earliest_ts:
+                continue
+            if latest_ts is not None and timestamp > latest_ts:
+                continue
 
-        timestamps.append(timestamp)
+            timestamps.append(timestamp)
 
     timestamps.sort()
 
@@ -38,9 +42,11 @@ def list_camera_timestamps(
 
 
 def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
+    date_folder = timestamp.strftime("%Y-%m-%d")
     return (
         config.output_path
         / camera
+        / date_folder
         / timestamp.strftime(
             config.output_file_name_format + "." + config.output_file_format
         )
