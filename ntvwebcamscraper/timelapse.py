@@ -2,50 +2,11 @@ import tempfile
 from datetime import datetime
 from itertools import groupby
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import ffmpeg
 
 from .config import config
-
-
-def list_camera_timestamps(
-    camera: str, earliest_ts: datetime | None = None, latest_ts: datetime | None = None
-) -> list[datetime]:
-    camera_path = config.output_path / camera
-
-    timestamps: list[datetime] = []
-
-    for image_file in camera_path.iterdir():
-        try:
-            timestamp = datetime.strptime(
-                image_file.name,
-                config.output_file_name_format + "." + config.output_file_format,
-            ).replace(tzinfo=ZoneInfo("America/St_Johns"))
-        except ValueError:
-            continue
-
-        if earliest_ts is not None and timestamp < earliest_ts:
-            continue
-        if latest_ts is not None and timestamp > latest_ts:
-            continue
-
-        timestamps.append(timestamp)
-
-    timestamps.sort()
-
-    return timestamps
-
-
-def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
-    return (
-        config.output_path
-        / camera
-        / timestamp.strftime(
-            config.output_file_name_format + "." + config.output_file_format
-        )
-    ).absolute()
-
+from .models import Image
 
 type FrameSelector = callable[[list[datetime]], list[datetime]]
 
@@ -98,7 +59,7 @@ def create_timelapse(
 ) -> None:
     print(f"Creating timelapse for {camera} from {from_date} to {to_date}")
 
-    timestamps = list_camera_timestamps(camera, from_date, to_date)
+    timestamps = Image.list_timestamps(camera, from_date, to_date)
     target_timestamps = frame_selector(timestamps)
 
     if not timestamps:
@@ -109,7 +70,7 @@ def create_timelapse(
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
         for ts in target_timestamps:
-            timestamp_path = get_timestamp_filename(camera, ts)
+            timestamp_path = Image.get_path(camera, ts)
             (temp_dir_path / timestamp_path.name).symlink_to(timestamp_path)
 
         pipeline = ffmpeg.input(

@@ -12,9 +12,15 @@ class Config(BaseSettings):
     output_file_name_format: str = "%Y-%m-%d %H-%M-%S"
     output_file_format: str = "jpg"
     interval: timedelta = timedelta(minutes=5)
+    db_filename: str = "images.db"
+    init_on_startup: bool = True
 
     target_cameras: Optional[list[str]] = None
     excluded_cameras: list[str] = []
+
+    @property
+    def db_uri(self) -> str:
+        return f"sqlite:///{self.output_path / self.db_filename}"
 
 
 config = Config()

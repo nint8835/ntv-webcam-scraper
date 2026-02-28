@@ -5,12 +5,14 @@ description = "Simple tool to take snapshots of all of NTV's live webcams on a s
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.4",
     "beautifulsoup4>=4.12.3",
     "ffmpeg-python>=0.2.0",
     "httpx>=0.27.2",
     "pydantic-settings>=2.6.1",
     "pydantic>=2.9.2",
     "scheduler>=0.8.7",
+    "sqlalchemy>=2.0.47",
     "typer>=0.13.0",
 ]
 
