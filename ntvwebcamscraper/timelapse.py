@@ -6,18 +6,7 @@ from pathlib import Path
 import ffmpeg
 
 from .config import config
-from .database import db
-
-
-def list_camera_timestamps(
-    camera: str, earliest_ts: datetime | None = None, latest_ts: datetime | None = None
-) -> list[datetime]:
-    return db.list_camera_timestamps(camera, earliest_ts, latest_ts)
-
-
-def get_timestamp_filename(camera: str, timestamp: datetime) -> Path:
-    return db.get_image_path(camera, timestamp)
-
+from .models import Image
 
 type FrameSelector = callable[[list[datetime]], list[datetime]]
 
@@ -70,7 +59,7 @@ def create_timelapse(
 ) -> None:
     print(f"Creating timelapse for {camera} from {from_date} to {to_date}")
 
-    timestamps = list_camera_timestamps(camera, from_date, to_date)
+    timestamps = Image.list_timestamps(camera, from_date, to_date)
     target_timestamps = frame_selector(timestamps)
 
     if not timestamps:
@@ -81,7 +70,7 @@ def create_timelapse(
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
         for ts in target_timestamps:
-            timestamp_path = get_timestamp_filename(camera, ts)
+            timestamp_path = Image.get_path(camera, ts)
             (temp_dir_path / timestamp_path.name).symlink_to(timestamp_path)
 
         pipeline = ffmpeg.input(

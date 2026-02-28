@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
 from .config import config
-from .database import db
+from .models import Image
 
 WEBCAMS_PAGE = "https://ntvplus.ca/pages/webcams"
 WEBCAM_URL_PREFIX = "https://ntvplus.ca/pages/webcam-"
@@ -132,7 +132,7 @@ def save_camera_image(camera: Camera) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     save_stream_frame(stream_hls_url, output_path)
-    db.add_image(camera.slug, timestamp, relative_path)
+    Image.add(camera.slug, timestamp, relative_path)
 
     print("Saved image for", camera.name)
 

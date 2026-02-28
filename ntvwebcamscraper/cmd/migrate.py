@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import typer
 
 from ntvwebcamscraper.config import config
-from ntvwebcamscraper.database import db
+from ntvwebcamscraper.models import Image
 
 NL_TZ = ZoneInfo("America/St_Johns")
 
@@ -27,7 +27,6 @@ def _flat_images() -> Iterator[tuple[str, os.DirEntry]]:
 
 def migrate():
     """Migrate images from flat directory structure to date-partitioned structure."""
-    db.init_db()
 
     with typer.progressbar(_flat_images(), label="Migrating images") as progress:
         for camera_name, entry in progress:
@@ -48,8 +47,9 @@ def migrate():
             )
             new_path = config.output_path / new_relative_path
             new_path.parent.mkdir(parents=True, exist_ok=True)
+
+            Image.add(camera_name, timestamp, new_relative_path)
             Path(entry.path).rename(new_path)
-            db.add_image(camera_name, timestamp, new_relative_path)
 
 
 __all__ = ["migrate"]
