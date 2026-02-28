@@ -6,13 +6,13 @@ from zoneinfo import ZoneInfo
 import typer
 from pydantic import BaseModel
 
-from ntvwebcamscraper.config import config
 from ntvwebcamscraper.timelapse import (
     FrameSelector,
     all_frames,
     create_timelapse,
     daily_frames,
 )
+from ntvwebcamscraper.webcams import list_cameras
 
 app = typer.Typer()
 
@@ -40,12 +40,9 @@ def create_timelapses(
         )
         return
 
-    for subdir in config.output_path.iterdir():
-        if not subdir.is_dir():
-            continue
-
+    for camera in list_cameras():
         create_timelapse(
-            camera=subdir.name,
+            camera=camera.slug,
             from_date=from_date,
             to_date=to_date,
             output_path=Path("timelapses"),
