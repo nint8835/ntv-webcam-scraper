@@ -1,3 +1,5 @@
+import os
+import shlex
 import tempfile
 from datetime import datetime
 from itertools import groupby
@@ -5,7 +7,6 @@ from pathlib import Path
 
 import ffmpeg
 
-from .config import config
 from .models import Image
 
 type FrameSelector = callable[[list[datetime]], list[datetime]]
@@ -47,6 +48,21 @@ def frame_skip(*, skip: int) -> FrameSelector:
     return select_frame_skip
 
 
+def _build_concat_file(
+    target_timestamps: list[datetime],
+    camera: str,
+    framerate: int,
+) -> str:
+    duration = 1 / framerate
+    lines = ["ffconcat version 1.0"]
+    for ts in target_timestamps:
+        image_path = Image.get_path(camera, ts)
+        lines.append(f"file {shlex.quote(image_path.as_posix())}")
+        lines.append(f"duration {duration:.10f}")
+        lines.append(f"file_packet_metadata title='{ts.strftime('%Y-%m-%d %H:%M:%S')}'")
+    return "\n".join(lines) + "\n"
+
+
 def create_timelapse(
     *,
     camera: str,
@@ -67,22 +83,24 @@ def create_timelapse(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
-        for ts in target_timestamps:
-            timestamp_path = Image.get_path(camera, ts)
-            (temp_dir_path / timestamp_path.name).symlink_to(timestamp_path)
+    concat_content = _build_concat_file(target_timestamps, camera, framerate)
 
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(concat_content)
+        concat_file_path = f.name
+
+    try:
         pipeline = ffmpeg.input(
-            str(temp_dir_path / ("*." + config.output_file_format)),
-            pattern_type="glob",
-            framerate=framerate,
-            export_path_metadata=1,
+            concat_file_path,
+            format="concat",
+            safe=0,
         )
 
         if include_timestamp:
             pipeline = pipeline.drawtext(
-                text="%{metadata:lavf.image2dec.source_basename}",
+                text="%{metadata:title}",
                 escape_text=False,
                 x=10,
                 y=10,
@@ -101,3 +119,5 @@ def create_timelapse(
             )
         except ffmpeg.Error as e:
             raise RuntimeError(f"ffmpeg error: {e.stderr.decode()}") from e
+    finally:
+        os.unlink(concat_file_path)
