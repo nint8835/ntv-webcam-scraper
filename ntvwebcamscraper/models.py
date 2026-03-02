@@ -1,7 +1,8 @@
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import DateTime, Integer, UniqueConstraint, select
+from sqlalchemy import DateTime, Integer, Select, UniqueConstraint, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,35 +50,25 @@ class Image(Base):
             s.commit()
 
     @classmethod
-    def list_timestamps(
+    def list_frames(
         cls,
         camera: str,
         earliest_ts: datetime | None = None,
         latest_ts: datetime | None = None,
-    ) -> list[datetime]:
-        q = select(cls.captured_at).where(cls.camera == camera)
-
+        *,
+        frame_selector: Callable[[Select], Select] | None = None,
+    ) -> list[tuple[datetime, Path]]:
+        q = (
+            select(cls.captured_at, cls.path)
+            .where(cls.camera == camera)
+            .order_by(cls.captured_at)
+        )
         if earliest_ts is not None:
             q = q.where(cls.captured_at >= earliest_ts)
-
         if latest_ts is not None:
             q = q.where(cls.captured_at <= latest_ts)
-
-        q = q.order_by(cls.captured_at)
-
+        if frame_selector is not None:
+            q = frame_selector(q)
         with session() as s:
-            return list(s.scalars(q))
-
-    @classmethod
-    def get_path(cls, camera: str, timestamp: datetime) -> Path:
-        q = select(cls.path).where(
-            cls.camera == camera,
-            cls.captured_at == timestamp,
-        )
-        with session() as s:
-            path = s.scalar(q)
-
-        if path is None:
-            raise FileNotFoundError(f"No image found for {camera} at {timestamp}")
-
-        return (config.output_path / path).absolute()
+            rows = s.execute(q).all()
+        return [(ts, (config.output_path / path).absolute()) for ts, path in rows]
