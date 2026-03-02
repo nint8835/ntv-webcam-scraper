@@ -15,33 +15,27 @@ app = typer.Typer()
 app.add_typer(timelapse_app, name="timelapse")
 
 
-@app.command()
-def migrate():
-    """Migrate images from flat directory structure to date-partitioned structure."""
-
+@app.callback()
+def on_startup() -> None:
     if config.init_on_startup:
         upgrade()
 
+
+@app.command()
+def migrate():
+    """Migrate images from flat directory structure to date-partitioned structure."""
     _migrate()
 
 
 @app.command()
 def scrape():
     """Scrape the webcam images once."""
-
-    if config.init_on_startup:
-        upgrade()
-
     save_all_camera_images()
 
 
 @app.command()
 def run():
     """Begin scraping the webcam images at the specified interval."""
-
-    if config.init_on_startup:
-        upgrade()
-
     schedule = Scheduler()
     schedule.cyclic(config.interval, save_all_camera_images)
 
