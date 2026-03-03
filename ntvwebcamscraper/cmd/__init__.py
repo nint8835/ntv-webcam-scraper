@@ -4,6 +4,7 @@ import alembic.config
 import typer
 from scheduler import Scheduler
 
+from ntvwebcamscraper.ai_analysis import test_analysis
 from ntvwebcamscraper.config import config
 from ntvwebcamscraper.database import merge_pending_migration
 from ntvwebcamscraper.webcams import save_all_camera_images
@@ -50,6 +51,13 @@ def upgrade() -> None:
     alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
 
     merge_pending_migration()
+
+
+@app.command()
+def ai_test() -> None:
+    """Test AI analysis."""
+
+    test_analysis()
 
 
 __all__ = ["app"]
