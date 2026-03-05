@@ -1,4 +1,7 @@
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
@@ -19,6 +22,45 @@ class AnalysisResult(BaseModel):
     )
 
 
+class BaseResponse(BaseModel):
+    current_summary: str = Field(
+        "A very brief summary of the current image. This will be provided in the system prompt for future images."
+    )
+
+
+class StartEvent(BaseResponse):
+    """Begin a new event."""
+
+    action: Literal["start_event"]
+    title: str = Field(description="A brief title for the event.")
+
+
+class EndEvent(BaseResponse):
+    """Flag the current event as no longer ongoing. You should only use this if you are CERTAIN that the event has ended and that there is nothing related to it still ongoing."""
+
+    action: Literal["end_event"]
+    explanation: str = Field(
+        description="A brief explanation for why the event is ending now. This is required to ensure that the event is being ended for a good reason and not just because the image is not interesting."
+    )
+
+
+class NoAction(BaseResponse):
+    """Take no action on this image. Use this when there is no change observed."""
+
+    action: Literal["none"]
+
+
+NoEventActions = Annotated[StartEvent | NoAction, Field(discriminator="action")]
+EventActions = Annotated[EndEvent | NoAction, Field(discriminator="action")]
+
+
+@dataclass
+class AnalysisState:
+    image: Image
+    event_title: str | None = None
+    summaries: list[str] = dataclass_field(default_factory=list)
+
+
 model = OpenAIChatModel(
     "Qwen3-VL-Instruct-4B",
     provider=OpenAIProvider(base_url="http://llama.internal.bootleg.technology/v1"),
@@ -26,8 +68,7 @@ model = OpenAIChatModel(
 
 agent = Agent(
     model=model,
-    deps_type=Image,
-    output_type=AnalysisResult,
+    deps_type=AnalysisState,
     system_prompt="""
 You are an assistant tasked with flagging whether images taken from NTV's webcams contain something that should be flagged as interesting.
 """,
@@ -35,12 +76,32 @@ You are an assistant tasked with flagging whether images taken from NTV's webcam
 
 
 @agent.system_prompt(dynamic=True)
-def camera_specific_prompt(ctx: RunContext[Image]) -> str:
-    match ctx.deps.camera:
+def camera_specific_prompt(ctx: RunContext[AnalysisState]) -> str:
+    match ctx.deps.image.camera:
         case "quidividivillage":
             return "The camera is located on a stage in Quidi Vidi Village, St. John's, Newfoundland and Labrador, Canada. It overlooks a portion of the harbour and the stages on the other side of the harbour."
         case _:
             return ""
+
+
+@agent.system_prompt(dynamic=True)
+def current_event(ctx: RunContext[AnalysisState]) -> str:
+    print(f"Current event title in system prompt: {ctx.deps.event_title}")
+    if ctx.deps.event_title:
+        return f"You have flagged an ongoing event titled '{ctx.deps.event_title}'."
+    else:
+        return "There is not currently an ongoing event."
+
+
+@agent.system_prompt(dynamic=True)
+def previous_summaries(ctx: RunContext[AnalysisState]) -> str:
+    if ctx.deps.summaries:
+        return (
+            f"You have summarized the past {min(len(ctx.deps.summaries), 5)} images as: "
+            + "; ".join(ctx.deps.summaries[-5:])
+        )
+    else:
+        return "You have not yet summarized any images."
 
 
 TEST_SUBJECTS: list[tuple[str, str, datetime, datetime]] = [
@@ -67,6 +128,9 @@ def test_analysis():
                 .all()
             )
 
+        event_title = None
+        summaries = []
+
         for image in images:
             print(f"Analyzing {image.path} for subject '{subject_name}'...")
 
@@ -76,7 +140,18 @@ def test_analysis():
                 image_bytes = f.read()
 
             result = agent.run_sync(
-                [BinaryContent(data=image_bytes, media_type="image/jpeg")], deps=image
+                [BinaryContent(data=image_bytes, media_type="image/jpeg")],
+                deps=AnalysisState(image=image, event_title=event_title),
+                output_type=NoEventActions if event_title is None else EventActions,
             )
 
-            print(f"\t{result}")
+            if result.output.action == "start_event":
+                event_title = result.output.title
+            elif result.output.action == "end_event":
+                event_title = None
+
+            summaries.append(result.output.current_summary)
+
+            print(
+                f"\t{result}\nEvent title is now: {event_title}\nSummaries: {summaries}\n"
+            )
