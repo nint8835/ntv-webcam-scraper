@@ -24,7 +24,7 @@ class AnalysisResult(BaseModel):
 
 class BaseResponse(BaseModel):
     current_summary: str = Field(
-        "A very brief summary of the current image. This will be provided in the system prompt for future images."
+        description="A very brief summary of the current image. This will be provided in the system prompt for future images."
     )
 
 
@@ -62,20 +62,20 @@ class AnalysisState:
 
 
 model = OpenAIChatModel(
-    "Qwen3-VL-Instruct-4B",
+    "Qwen3.5-35B-A3B",
     provider=OpenAIProvider(base_url="http://llama.internal.bootleg.technology/v1"),
 )
 
 agent = Agent(
     model=model,
     deps_type=AnalysisState,
-    system_prompt="""
+    instructions="""
 You are an assistant tasked with flagging whether images taken from NTV's webcams contain something that should be flagged as interesting.
 """,
 )
 
 
-@agent.system_prompt(dynamic=True)
+@agent.instructions
 def camera_specific_prompt(ctx: RunContext[AnalysisState]) -> str:
     match ctx.deps.image.camera:
         case "quidividivillage":
@@ -84,16 +84,15 @@ def camera_specific_prompt(ctx: RunContext[AnalysisState]) -> str:
             return ""
 
 
-@agent.system_prompt(dynamic=True)
+@agent.instructions
 def current_event(ctx: RunContext[AnalysisState]) -> str:
-    print(f"Current event title in system prompt: {ctx.deps.event_title}")
     if ctx.deps.event_title:
         return f"You have flagged an ongoing event titled '{ctx.deps.event_title}'."
     else:
         return "There is not currently an ongoing event."
 
 
-@agent.system_prompt(dynamic=True)
+@agent.instructions
 def previous_summaries(ctx: RunContext[AnalysisState]) -> str:
     if ctx.deps.summaries:
         return (
@@ -108,7 +107,7 @@ TEST_SUBJECTS: list[tuple[str, str, datetime, datetime]] = [
     (
         "Quidi Vidi Fire",
         "quidividivillage",
-        datetime(2025, 7, 29, hour=22, minute=28, tzinfo=ZoneInfo("America/St_Johns")),
+        datetime(2025, 7, 29, hour=23, minute=5, tzinfo=ZoneInfo("America/St_Johns")),
         datetime(2025, 7, 30, tzinfo=ZoneInfo("America/St_Johns")),
     )
 ]
@@ -132,7 +131,7 @@ def test_analysis():
         summaries = []
 
         for image in images:
-            print(f"Analyzing {image.path} for subject '{subject_name}'...")
+            # print(f"Analyzing {image.path} for subject '{subject_name}'...")
 
             full_path = config.output_path / image.path
 
@@ -141,7 +140,9 @@ def test_analysis():
 
             result = agent.run_sync(
                 [BinaryContent(data=image_bytes, media_type="image/jpeg")],
-                deps=AnalysisState(image=image, event_title=event_title),
+                deps=AnalysisState(
+                    image=image, event_title=event_title, summaries=summaries
+                ),
                 output_type=NoEventActions if event_title is None else EventActions,
             )
 
@@ -152,6 +153,4 @@ def test_analysis():
 
             summaries.append(result.output.current_summary)
 
-            print(
-                f"\t{result}\nEvent title is now: {event_title}\nSummaries: {summaries}\n"
-            )
+            print(f"Result: {result.output}")
