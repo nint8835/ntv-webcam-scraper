@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:python3.12-alpine
 
-RUN apk add --no-cache ffmpeg --repository=https://dl-cdn.alpinelinux.org/alpine/latest-stable/community
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
