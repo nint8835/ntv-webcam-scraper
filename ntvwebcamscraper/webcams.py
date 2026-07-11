@@ -1,24 +1,37 @@
-import json
-import re
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from warnings import warn
 from zoneinfo import ZoneInfo
 
 import ffmpeg
 import httpx
-from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
 from .config import config
 from .models import Image
 
-WEBCAMS_PAGE = "https://ntvplus.ca/pages/webcams"
-WEBCAM_URL_PREFIX = "https://ntvplus.ca/pages/webcam-"
+WEBCAMS_URL = "https://ntvplus.ca/webcams?_data=routes%2F%24"
+
+# The site no longer exposes the slugs used by existing archives and config. Keep
+# mapping its feed titles back to those stable identifiers.
+CAMERA_SLUGS = {
+    "St. John's - Harbour": "stjohns-sky",
+    "St. John's - Admiral's Green": "admiralsgreen",
+    "St. John's - Downtown": "downtown",
+    "St. John's - George Street": "georgestreet",
+    "St. John's - Quidi Vidi Lake": "quidividilake",
+    "Corner Brook": "cornerbrook",
+    "Grand Falls-Windsor": "gfw-highstreet",
+    "Port de Grave": "portdegrave",
+    "Portugal Cove-St. Philips": "stphilips-bellisland",
+    "St. John's - Logy Bay Road": "logybayroad",
+}
 
 session = httpx.Client(
     headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
 )
 
@@ -26,6 +39,7 @@ session = httpx.Client(
 class Camera(BaseModel):
     name: str
     slug: str
+    feed_url: str
 
     def __hash__(self) -> int:
         return hash(self.slug)
@@ -33,39 +47,27 @@ class Camera(BaseModel):
 
 @lru_cache
 def list_cameras() -> list[Camera]:
-    return [
-        Camera(
-            name="Admiral's Green",
-            slug="admiralsgreen",
-        ),
-        Camera(name="Corner Brook", slug="cornerbrook"),
-        Camera(name="Downtown", slug="downtown"),
-        Camera(name="George Street", slug="georgestreet"),
-        Camera(name="GFW High Street", slug="gfw-highstreet"),
-        Camera(name="Logy Bay Road", slug="logybayroad"),
-        Camera(name="Port de Grave", slug="portdegrave"),
-        Camera(name="Quidi Vidi Lake", slug="quidividilake"),
-        Camera(name="Quidi Vidi Village", slug="quidividivillage"),
-        Camera(name="St. John's Sky", slug="stjohns-sky"),
-        Camera(name="St. Philip's - Bell Island", slug="stphilips-bellisland"),
-    ]
+    response = session.get(WEBCAMS_URL)
+    response.raise_for_status()
 
-    cameras_page = session.get(WEBCAMS_PAGE)
-    cameras_page.raise_for_status()
-
-    soup = BeautifulSoup(cameras_page.text, "html.parser")
-
+    entries = response.json()["serverLoadedFeeds"][0]["feed"]["entry"]
     cameras = []
 
-    page_div = soup.find("div", class_="page")
-
-    for camera_a in page_div.find_all("a"):
-        title_h3 = camera_a.find("h3")
+    for entry in entries:
+        title = entry["title"]
+        slug = CAMERA_SLUGS.get(title)
+        if slug is None:
+            warn(
+                f"Webcam feed {title!r} has no legacy slug and will be skipped",
+                stacklevel=2,
+            )
+            continue
 
         cameras.append(
             Camera(
-                name=title_h3.text,
-                slug=camera_a["href"].split("/")[-1].removeprefix("webcam-"),
+                name=title,
+                slug=slug,
+                feed_url=entry["link"]["href"],
             )
         )
 
@@ -73,33 +75,10 @@ def list_cameras() -> list[Camera]:
 
 
 @lru_cache
-def get_stream_iframe_url(camera: Camera) -> str:
-    camera_page = session.get(WEBCAM_URL_PREFIX + camera.slug)
-    camera_page.raise_for_status()
-
-    soup = BeautifulSoup(camera_page.text, "html.parser")
-    iframe = soup.find(
-        lambda element: (
-            element.name == "iframe" and "https://c.streamhoster.com" in element["src"]
-        )
-    )
-
-    return iframe["src"]
-
-
-@lru_cache
-def get_stream_hls_url(iframe_url: str) -> str:
-    stream_page = session.get(iframe_url)
-    stream_page.raise_for_status()
-
-    soup = BeautifulSoup(stream_page.text, "html.parser")
-    hls_script = soup.find(
-        lambda element: (element.name == "script" and "var shCfg" in element.text)
-    )
-
-    shcfg = json.loads(re.findall(r"var shCfg = (.*);\n", hls_script.text)[0])
-
-    return shcfg["mediaUrlTemplate"]["hlsAdaptiveUrl"]["url"]
+def get_stream_hls_url(feed_url: str) -> str:
+    response = session.get(feed_url)
+    response.raise_for_status()
+    return response.json()["entry"][0]["content"]["src"]
 
 
 def save_stream_frame(hls_url: str, output_path: Path) -> None:
@@ -114,8 +93,7 @@ def save_stream_frame(hls_url: str, output_path: Path) -> None:
 def save_camera_image(camera: Camera) -> None:
     print("Saving image for", camera.name)
 
-    stream_frame_url = get_stream_iframe_url(camera)
-    stream_hls_url = get_stream_hls_url(stream_frame_url)
+    stream_hls_url = get_stream_hls_url(camera.feed_url)
 
     timestamp = datetime.now(tz=ZoneInfo("America/St_Johns"))
     filename = timestamp.strftime(
