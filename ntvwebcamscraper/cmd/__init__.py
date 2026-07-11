@@ -47,6 +47,7 @@ def run():
 @app.command()
 def upgrade() -> None:
     """Perform database migrations."""
+    config.output_path.mkdir(parents=True, exist_ok=True)
     alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
 
     merge_pending_migration()
