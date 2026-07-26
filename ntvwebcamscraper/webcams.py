@@ -125,5 +125,7 @@ def save_all_camera_images() -> None:
 
         try:
             save_camera_image(camera)
-        except Exception as e:
+        # Keep processing the remaining cameras if one feed, filesystem write,
+        # or database operation fails unexpectedly.
+        except Exception as e:  # noqa: BLE001
             print(f"Error saving image for {camera.name}: {e}")

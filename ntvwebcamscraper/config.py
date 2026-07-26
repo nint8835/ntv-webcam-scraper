@@ -1,6 +1,5 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,7 +14,7 @@ class Config(BaseSettings):
     db_filename: str = "images.db"
     init_on_startup: bool = True
 
-    target_cameras: Optional[list[str]] = None
+    target_cameras: list[str] | None = None
     excluded_cameras: list[str] = []
 
     @property

@@ -40,9 +40,9 @@ def create_timelapses(
         )
         return
 
-    for camera in list_cameras():
+    for available_camera in list_cameras():
         create_timelapse(
-            camera=camera.slug,
+            camera=available_camera.slug,
             from_date=from_date,
             to_date=to_date,
             output_path=Path("timelapses"),
