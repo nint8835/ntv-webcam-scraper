@@ -18,8 +18,16 @@ class Config(BaseSettings):
     excluded_cameras: list[str] = []
 
     @property
-    def db_uri(self) -> str:
-        return f"sqlite:///{self.output_path / self.db_filename}"
+    def db_path(self) -> Path:
+        return self.output_path / self.db_filename
+
+    @property
+    def async_db_uri(self) -> str:
+        return f"sqlite+aiosqlite:///{self.db_path}"
+
+    @property
+    def sync_db_uri(self) -> str:
+        return f"sqlite:///{self.db_path}"
 
 
 config = Config()

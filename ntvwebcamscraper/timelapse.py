@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shlex
 import tempfile
@@ -73,7 +74,7 @@ def _build_concat_file(
     return "\n".join(lines) + "\n"
 
 
-def create_timelapse(
+async def create_timelapse(
     *,
     camera: str,
     from_date: datetime,
@@ -85,14 +86,29 @@ def create_timelapse(
 ) -> None:
     print(f"Creating timelapse for {camera} from {from_date} to {to_date}")
 
-    frames = Image.list_frames(
+    frames = await Image.list_frames(
         camera, from_date, to_date, frame_selector=frame_selector
     )
 
     if not frames:
         raise ValueError("No images found for the specified time range.")
 
-    output_path.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(
+        _render_timelapse,
+        frames,
+        output_path / f"{camera}.mp4",
+        framerate,
+        include_timestamp,
+    )
+
+
+def _render_timelapse(
+    frames: list[tuple[datetime, Path]],
+    output_file: Path,
+    framerate: int,
+    include_timestamp: bool,
+) -> None:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     concat_content = _build_concat_file(frames, framerate)
 
@@ -122,7 +138,7 @@ def create_timelapse(
 
         try:
             pipeline.output(
-                str(output_path / f"{camera}.mp4"),
+                str(output_file),
             ).run(
                 overwrite_output=True,
                 capture_stdout=True,

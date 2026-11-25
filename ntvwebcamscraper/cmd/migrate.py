@@ -12,7 +12,7 @@ from ntvwebcamscraper.models import Image
 NL_TZ = ZoneInfo("America/St_Johns")
 
 
-def _flat_images() -> Iterator[tuple[str, os.DirEntry]]:
+def _flat_images() -> Iterator[tuple[str, os.DirEntry[str]]]:
     with os.scandir(config.output_path) as cameras:
         for camera_entry in cameras:
             if not camera_entry.is_dir(follow_symlinks=False):
@@ -25,7 +25,7 @@ def _flat_images() -> Iterator[tuple[str, os.DirEntry]]:
                         yield camera_entry.name, entry
 
 
-def migrate():
+async def migrate() -> None:
     """Migrate images from flat directory structure to date-partitioned structure."""
 
     with typer.progressbar(_flat_images(), label="Migrating images") as progress:
@@ -48,7 +48,7 @@ def migrate():
             new_path = config.output_path / new_relative_path
             new_path.parent.mkdir(parents=True, exist_ok=True)
 
-            Image.add(camera_name, timestamp, new_relative_path)
+            await Image.add(camera_name, timestamp, new_relative_path)
             Path(entry.path).rename(new_path)
 
 

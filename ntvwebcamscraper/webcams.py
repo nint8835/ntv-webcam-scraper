@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -6,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 import ffmpeg
 import httpx
+from asyncstdlib.functools import cache as async_cache
 from pydantic import BaseModel
 
 from .config import config
@@ -28,12 +30,11 @@ CAMERA_SLUGS = {
     "St. John's - Logy Bay Road": "logybayroad",
 }
 
-session = httpx.Client(
-    headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    }
-)
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+}
+session = httpx.Client(headers=HTTP_HEADERS)
 
 
 class Camera(BaseModel):
@@ -45,13 +46,15 @@ class Camera(BaseModel):
         return hash(self.slug)
 
 
-@lru_cache
-def list_cameras() -> list[Camera]:
-    response = session.get(WEBCAMS_URL)
+@async_cache
+async def list_cameras() -> list[Camera]:
+    """Fetch the camera list and cache successful results for the process."""
+    async with httpx.AsyncClient(headers=HTTP_HEADERS) as client:
+        response = await client.get(WEBCAMS_URL)
     response.raise_for_status()
 
     entries = response.json()["serverLoadedFeeds"][0]["feed"]["entry"]
-    cameras = []
+    cameras: list[Camera] = []
 
     for entry in entries:
         title = entry["title"]
@@ -90,9 +93,7 @@ def save_stream_frame(hls_url: str, output_path: Path) -> None:
         raise RuntimeError(f"ffmpeg error: {e.stderr.decode()}") from e
 
 
-def save_camera_image(camera: Camera) -> None:
-    print("Saving image for", camera.name)
-
+def _capture_camera_frame(camera: Camera) -> tuple[datetime, Path]:
     stream_hls_url = get_stream_hls_url(camera.feed_url)
 
     timestamp = datetime.now(tz=ZoneInfo("America/St_Johns"))
@@ -110,13 +111,19 @@ def save_camera_image(camera: Camera) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     save_stream_frame(stream_hls_url, output_path)
-    Image.add(camera.slug, timestamp, relative_path)
+    return timestamp, relative_path
+
+
+async def save_camera_image(camera: Camera) -> None:
+    print("Saving image for", camera.name)
+    timestamp, relative_path = await asyncio.to_thread(_capture_camera_frame, camera)
+    await Image.add(camera.slug, timestamp, relative_path)
 
     print("Saved image for", camera.name)
 
 
-def save_all_camera_images() -> None:
-    for camera in list_cameras():
+async def save_all_camera_images() -> None:
+    for camera in await list_cameras():
         if (
             config.target_cameras is not None
             and camera.slug not in config.target_cameras
@@ -124,7 +131,7 @@ def save_all_camera_images() -> None:
             continue
 
         try:
-            save_camera_image(camera)
+            await save_camera_image(camera)
         # Keep processing the remaining cameras if one feed, filesystem write,
         # or database operation fails unexpectedly.
         except Exception as e:  # noqa: BLE001

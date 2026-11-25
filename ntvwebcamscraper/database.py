@@ -1,6 +1,9 @@
+import asyncio
+
 import alembic.config
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 from .config import config
 
@@ -9,36 +12,42 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_engine(config.db_uri)
-session = sessionmaker(engine, expire_on_commit=False)
+engine = create_async_engine(config.async_db_uri)
+async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
-def upgrade_database() -> None:
+async def upgrade_database() -> None:
     config.output_path.mkdir(parents=True, exist_ok=True)
-    alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
-    merge_pending_migration()
+    await asyncio.to_thread(alembic.config.main, argv=["--raiseerr", "upgrade", "head"])
+    await merge_pending_migration()
 
 
-def merge_pending_migration() -> None:
+async def merge_pending_migration() -> None:
     migration_db_path = config.output_path / "migration.db"
     if not migration_db_path.exists():
         return
 
     print("Found migration.db, merging...")
-    with engine.connect() as conn:
-        conn.execute(
-            text("ATTACH DATABASE :path AS source"), {"path": str(migration_db_path)}
-        )
-        conn.execute(
-            text("""
-            INSERT OR IGNORE INTO images
-                (camera, captured_at, year, month, day, hour, minute, second, weekday, path)
-            SELECT camera, captured_at, year, month, day, hour, minute, second, weekday, path
-            FROM source.images
-        """)
-        )
-        conn.commit()
-        conn.execute(text("DETACH DATABASE source"))
+    async with engine.connect() as conn:
+        try:
+            await conn.execute(
+                text("ATTACH DATABASE :path AS source"),
+                {"path": str(migration_db_path)},
+            )
+            await conn.execute(
+                text("""
+                INSERT OR IGNORE INTO images
+                    (camera, captured_at, year, month, day, hour, minute, second, weekday, path)
+                SELECT camera, captured_at, year, month, day, hour, minute, second, weekday, path
+                FROM source.images
+                """)
+            )
+            await conn.commit()
+            await conn.execute(text("DETACH DATABASE source"))
+        except BaseException:
+            # A failed merge can leave the source attached to the connection.
+            await conn.invalidate()
+            raise
     migration_db_path.unlink()
 
     print("Migration database merged.")

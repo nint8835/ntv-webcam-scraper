@@ -1,6 +1,5 @@
 {
   "editor.formatOnSave": true,
-  "python.analysis.typeCheckingMode": "strict",
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.codeActionsOnSave": {

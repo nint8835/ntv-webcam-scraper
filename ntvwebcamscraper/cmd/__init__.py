@@ -8,6 +8,7 @@ from ntvwebcamscraper.webcams import save_all_camera_images
 
 from .migrate import migrate as _migrate
 from .timelapse import app as timelapse_app
+from .utils import async_command
 
 app = typer.Typer()
 app.add_typer(timelapse_app, name="timelapse")
@@ -15,20 +16,22 @@ app.add_typer(timelapse_app, name="timelapse")
 
 @app.callback()
 def on_startup(ctx: typer.Context) -> None:
-    if config.init_on_startup and ctx.invoked_subcommand != "run":
+    if config.init_on_startup and ctx.invoked_subcommand not in {"run", "upgrade"}:
         upgrade()
 
 
 @app.command()
-def migrate():
+@async_command
+async def migrate() -> None:
     """Migrate images from flat directory structure to date-partitioned structure."""
-    _migrate()
+    await _migrate()
 
 
 @app.command()
-def scrape():
+@async_command
+async def scrape() -> None:
     """Scrape the webcam images once."""
-    save_all_camera_images()
+    await save_all_camera_images()
 
 
 @app.command()
@@ -38,9 +41,10 @@ def run():
 
 
 @app.command()
-def upgrade() -> None:
+@async_command
+async def upgrade() -> None:
     """Perform database migrations."""
-    upgrade_database()
+    await upgrade_database()
 
 
 __all__ = ["app"]

@@ -14,22 +14,24 @@ from ntvwebcamscraper.timelapse import (
 )
 from ntvwebcamscraper.webcams import list_cameras
 
+from .utils import async_command
+
 app = typer.Typer()
 
 
-def create_timelapses(
+async def create_timelapses(
     camera: str,
     from_date: datetime,
     to_date: datetime,
     framerate: int,
     include_timestamp: bool,
     frame_selector: FrameSelector,
-):
+) -> None:
     from_date = from_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
     to_date = to_date.replace(tzinfo=ZoneInfo("America/St_Johns"))
 
     if camera != "all":
-        create_timelapse(
+        await create_timelapse(
             camera=camera,
             from_date=from_date,
             to_date=to_date,
@@ -40,8 +42,8 @@ def create_timelapses(
         )
         return
 
-    for available_camera in list_cameras():
-        create_timelapse(
+    for available_camera in await list_cameras():
+        await create_timelapse(
             camera=available_camera.slug,
             from_date=from_date,
             to_date=to_date,
@@ -79,30 +81,32 @@ def timelapse_callback(
 
 
 @app.command()
-def daily(
+@async_command
+async def daily(
     ctx: typer.Context,
     hour: int,
     frames: int = 1,
-):
+) -> None:
     """Create a timelapse from a specified number of frames from a given hour each day."""
 
     options = cast(TimelapseOptions, ctx.obj)
 
-    create_timelapses(
+    await create_timelapses(
         frame_selector=daily_frames(hour=hour, frames=frames),
         **options.model_dump(),
     )
 
 
 @app.command()
-def all(
+@async_command
+async def all(
     ctx: typer.Context,
-):
+) -> None:
     """Create a timelapse from all saved images."""
 
     options = cast(TimelapseOptions, ctx.obj)
 
-    create_timelapses(
+    await create_timelapses(
         frame_selector=all_frames,
         **options.model_dump(),
     )

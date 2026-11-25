@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from scheduler import Scheduler
 
 from ntvwebcamscraper.config import config
-from ntvwebcamscraper.database import upgrade_database
+from ntvwebcamscraper.database import engine, upgrade_database
 from ntvwebcamscraper.webcams import save_all_camera_images
 
 
@@ -19,19 +19,27 @@ def run_schedule(schedule: Scheduler, stop: Event) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
-    if config.init_on_startup:
-        await asyncio.to_thread(upgrade_database)
-
-    schedule = Scheduler()
-    schedule.cyclic(config.interval, save_all_camera_images)
-    stop = Event()
-    scraper = asyncio.create_task(asyncio.to_thread(run_schedule, schedule, stop))
-
     try:
-        yield
+        if config.init_on_startup:
+            await upgrade_database()
+
+        loop = asyncio.get_running_loop()
+
+        def scrape() -> None:
+            asyncio.run_coroutine_threadsafe(save_all_camera_images(), loop).result()
+
+        schedule = Scheduler()
+        schedule.cyclic(config.interval, scrape)
+        stop = Event()
+        scraper = asyncio.create_task(asyncio.to_thread(run_schedule, schedule, stop))
+
+        try:
+            yield
+        finally:
+            stop.set()
+            await scraper
     finally:
-        stop.set()
-        await scraper
+        await engine.dispose()
 
 
 app = FastAPI(lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)

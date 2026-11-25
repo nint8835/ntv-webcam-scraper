@@ -7,7 +7,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .config import config
-from .database import Base, session
+from .database import Base, async_session
 
 
 class Image(Base):
@@ -28,7 +28,7 @@ class Image(Base):
     __table_args__ = (UniqueConstraint("camera", "captured_at"),)
 
     @classmethod
-    def add(cls, camera: str, timestamp: datetime, path: Path) -> None:
+    async def add(cls, camera: str, timestamp: datetime, path: Path) -> None:
         stmt = (
             insert(cls)
             .values(
@@ -45,12 +45,11 @@ class Image(Base):
             )
             .on_conflict_do_nothing()
         )
-        with session() as s:
-            s.execute(stmt)
-            s.commit()
+        async with async_session.begin() as db:
+            await db.execute(stmt)
 
     @classmethod
-    def list_frames(
+    async def list_frames(
         cls,
         camera: str,
         earliest_ts: datetime | None = None,
@@ -69,6 +68,6 @@ class Image(Base):
             q = q.where(cls.captured_at <= latest_ts)
         if frame_selector is not None:
             q = frame_selector(q)
-        with session() as s:
-            rows = s.execute(q).all()
+        async with async_session() as db:
+            rows = (await db.execute(q)).all()
         return [(ts, (config.output_path / path).absolute()) for ts, path in rows]
