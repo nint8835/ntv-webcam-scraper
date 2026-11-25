@@ -1,11 +1,9 @@
-import time
-
-import alembic.config
 import typer
-from scheduler import Scheduler
+import uvicorn
 
 from ntvwebcamscraper.config import config
-from ntvwebcamscraper.database import merge_pending_migration
+from ntvwebcamscraper.database import upgrade_database
+from ntvwebcamscraper.web import app as web_app
 from ntvwebcamscraper.webcams import save_all_camera_images
 
 from .migrate import migrate as _migrate
@@ -16,8 +14,8 @@ app.add_typer(timelapse_app, name="timelapse")
 
 
 @app.callback()
-def on_startup() -> None:
-    if config.init_on_startup:
+def on_startup(ctx: typer.Context) -> None:
+    if config.init_on_startup and ctx.invoked_subcommand != "run":
         upgrade()
 
 
@@ -35,22 +33,14 @@ def scrape():
 
 @app.command()
 def run():
-    """Begin scraping the webcam images at the specified interval."""
-    schedule = Scheduler()
-    schedule.cyclic(config.interval, save_all_camera_images)
-
-    while True:
-        schedule.exec_jobs()
-        time.sleep(1)
+    """Serve the web app and scrape webcam images at the configured interval."""
+    uvicorn.run(web_app, host="127.0.0.1", port=8000, workers=1, lifespan="on")
 
 
 @app.command()
 def upgrade() -> None:
     """Perform database migrations."""
-    config.output_path.mkdir(parents=True, exist_ok=True)
-    alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
-
-    merge_pending_migration()
+    upgrade_database()
 
 
 __all__ = ["app"]

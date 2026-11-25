@@ -1,3 +1,4 @@
+import alembic.config
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -10,6 +11,12 @@ class Base(DeclarativeBase):
 
 engine = create_engine(config.db_uri)
 session = sessionmaker(engine, expire_on_commit=False)
+
+
+def upgrade_database() -> None:
+    config.output_path.mkdir(parents=True, exist_ok=True)
+    alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
+    merge_pending_migration()
 
 
 def merge_pending_migration() -> None:
