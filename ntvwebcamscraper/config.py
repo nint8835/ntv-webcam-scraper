@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ntvwebcamscraper_")
+    model_config = SettingsConfigDict(env_prefix="ntvwebcamscraper_", env_file=".env")
 
     output_path: Path = Path("images")
     output_file_name_format: str = "%Y-%m-%d %H-%M-%S"
@@ -16,6 +16,10 @@ class Config(BaseSettings):
 
     target_cameras: list[str] | None = None
     excluded_cameras: list[str] = []
+
+    oidc_subjects: dict[str, list[str]] = {}
+    oidc_audience: str = "ntv-webcam-scraper"
+    oidc_jwks_cache_ttl: timedelta = timedelta(hours=1)
 
     @property
     def db_path(self) -> Path:

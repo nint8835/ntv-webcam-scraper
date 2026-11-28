@@ -1,4 +1,5 @@
 .dockerignore
+.env
 .git
 .gitignore
 .venv

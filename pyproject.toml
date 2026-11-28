@@ -13,6 +13,7 @@ dependencies = [
     "httpx==0.28.1",
     "pydantic==2.14.4",
     "pydantic-settings==2.16.3",
+    "pyjwt[crypto]==2.15.1",
     "scheduler==0.8.11",
     "sqlalchemy[asyncio]==2.1.9",
     "typer==0.29.2",

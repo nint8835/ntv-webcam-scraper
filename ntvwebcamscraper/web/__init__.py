@@ -8,6 +8,7 @@ from scheduler import Scheduler
 
 from ntvwebcamscraper.config import config
 from ntvwebcamscraper.database import engine, upgrade_database
+from ntvwebcamscraper.web.auth import Auth, Principal, verifier
 from ntvwebcamscraper.webcams import save_all_camera_images
 
 
@@ -39,7 +40,14 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
             stop.set()
             await scraper
     finally:
+        await verifier.aclose()
         await engine.dispose()
 
 
-app = FastAPI(lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/api/whoami")
+async def whoami(principal: Auth) -> Principal:
+    """Return the authenticated principal."""
+    return principal
