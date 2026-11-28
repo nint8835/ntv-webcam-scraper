@@ -29,6 +29,28 @@ ALLOWED_ALGORITHMS = frozenset(
 MIN_REFRESH_INTERVAL = 60.0
 
 
+class ErrorResponse(BaseModel):
+    detail: str
+
+
+# OpenAPI documentation for the errors require_auth can raise; attach to any
+# router or route that depends on it.
+AUTH_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.HTTP_401_UNAUTHORIZED: {
+        "model": ErrorResponse,
+        "description": "Missing, malformed, or invalid bearer token",
+    },
+    status.HTTP_403_FORBIDDEN: {
+        "model": ErrorResponse,
+        "description": "Token subject is not permitted",
+    },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ErrorResponse,
+        "description": "Unable to fetch the issuer's signing keys",
+    },
+}
+
+
 class Principal(BaseModel):
     issuer: str
     subject: str
